@@ -2,8 +2,8 @@
 FDEVICE="BV7100"
 
 fox_get_target_device() {
-  local chkdev=$(echo "$BASH_SOURCE" | grep -w \"$FDEVICE\")
-  if [ -n "$chkdev" ]; then FOX_BUILD_DEVICE="$FDEVICE"; else chkdev=$(set | grep BASH_ARGV | grep -w \"$FDEVICE\"); [ -n "$chkdev" ] && FOX_BUILD_DEVICE="$FDEVICE"; fi
+  local chkdev=$(echo "$BASH_SOURCE" | grep -w "$FDEVICE")
+  if [ -n "$chkdev" ]; then FOX_BUILD_DEVICE="$FDEVICE"; else chkdev=$(set | grep BASH_ARGV | grep -w "$FDEVICE"); [ -n "$chkdev" ] && FOX_BUILD_DEVICE="$FDEVICE"; fi
 }
 [ -z "$1" -a -z "$FOX_BUILD_DEVICE" ] && fox_get_target_device
 
@@ -44,20 +44,16 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
   export FOX_REMOVE_BASH=1
   export FOX_REMOVE_ZIP_BINARY=1
   export FOX_EXCLUDE_NANO_EDITOR=1
-  export FOX_DRASTIC_SIZE_REDUCTION=1
   export OF_USE_LZ4_COMPRESSION=0
   export FOX_USE_XZ_UTILS=0
-  export FOX_USE_TAR_BINARY=1
-  export FOX_USE_SED_BINARY=1
-  export FOX_ASH_IS_BASH=1
 
   # misc
   export OF_USE_GREEN_LED=0
   export OF_FLASHLIGHT_ENABLE=0
-  export FOX_ENABLE_APP_MANAGER=1
   export OF_USE_MAGISKBOOT=1
   export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
   export FOX_BUGGED_AOSP_ARB_WORKAROUND="1616300800"
   export FOX_VERSION="R12.1_BV7100"
   export OF_MAINTAINER="Drag228228"
+  echo "OrangeFox vars for $FDEVICE loaded"
 fi

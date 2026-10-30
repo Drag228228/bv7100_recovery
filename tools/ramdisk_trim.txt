@@ -1,0 +1,41 @@
+# What boot_tool.py removes from the OrangeFox ramdisk so it fits the 32 MiB boot
+# partition next to the stock kernel (see README). Paths are relative to ramdisk root.
+#
+#   rm   <glob>            delete
+#   keep <glob>            exception for rm
+#   link <glob> <target>   replace by a symlink (the option keeps working, looks like Roboto)
+
+# UI languages: only English, Russian, Ukrainian
+rm   twres/languages/*.xml
+keep twres/languages/en.xml
+keep twres/languages/ru.xml
+keep twres/languages/uk_UA.xml
+
+# CJK font (5 MB) is only needed for zh/ja/ko, optional decorative fonts -> Roboto.
+# Defaults (InterDisplay, GoogleSans, Roboto) and the terminal font (FiraCode) stay.
+link twres/fonts/wqy-microhei.ttf    Roboto-Regular.ttf
+rm   twres/fonts/wqy-microhei_README.txt
+link twres/fonts/Chococooky.ttf      Roboto-Regular.ttf
+link twres/fonts/RobotoSlab.ttf      Roboto-Regular.ttf
+link twres/fonts/Exo2-Regular.ttf    Roboto-Regular.ttf
+link twres/fonts/Exo2-Medium.ttf     Roboto-Medium.ttf
+link twres/fonts/EuclidFlex-Regular.ttf Roboto-Regular.ttf
+link twres/fonts/EuclidFlex-Medium.ttf  Roboto-Medium.ttf
+
+# A/B OTA payload sideload (there are no A/B zip ROMs for BV7100; GSIs are flashed
+# through fastbootd, which stays)
+rm   system/bin/update_engine_sideload
+
+# bash/zip: OrangeFox works with the built-in sh and its own unzip (ziptool)
+rm   sbin/bash
+rm   system/bin/bash
+rm   sbin/zip
+rm   system/etc/bash/*
+
+# debugging helpers / unused libraries (nothing links against them)
+rm   system/bin/keystore_cli_v2
+rm   system/bin/ozip_decrypt
+rm   system/lib64/libxml2.so
+rm   system/lib64/libadbd_services.so
+rm   system/lib64/libadbd.so
+rm   system/lib64/libnl.so

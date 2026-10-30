@@ -1,0 +1,8 @@
+# Tier 3: last resort. Drops the Android log daemon (OrangeFox's own log in
+# /tmp/recovery.log still works; only "logcat" capture is lost).
+rm   system/bin/logd
+rm   system/bin/logcat
+rm   system/bin/logcatd
+rm   init.recovery.logd.rc
+rm   system/etc/init/logd.rc
+rm   system/etc/init/logcatd.rc

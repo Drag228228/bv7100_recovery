@@ -144,6 +144,218 @@ def under(name, roots):
     return any(n == r or n.startswith(r + '/') for r in roots)
 
 
+# ---------------------------------------------------------------- ramdisk trimming
+#
+# The BV7100 boot partition is 32 MiB and the stock kernel alone takes ~11 MB, so
+# the full OrangeFox ramdisk (gzip ~33 MB) does not fit. trim() removes things that
+# are not needed on this phone, as listed in ramdisk_trim.txt:
+#   rm   <glob>            delete matching files/links
+#   keep <glob>            exception for rm
+#   link <glob> <target>   replace a file by a symlink (e.g. optional fonts -> Roboto)
+# then removes libraries that were used ONLY by deleted programs, checks that every
+# remaining program still finds all its libraries, strips symbol tables/mini-debuginfo
+# from OrangeFox's own ELF files (never vendor blobs, init or linker) and fixes
+# ramdisk-files.txt/.sha256sum (OrangeFox uses them to re-pack itself).
+
+import fnmatch
+import stat as statmod
+import subprocess
+import tempfile
+
+LIB_DIRS = ('system/lib64', 'vendor/lib64', 'system/lib64/hw', 'vendor/lib64/hw',
+            'system/lib64/bootstrap', 'apex/com.android.runtime/lib64/bionic')
+
+
+def elf_needed(data):
+    """DT_NEEDED names of an ELF64 little-endian file, or None for non-ELF."""
+    if data[:4] != b'\x7fELF' or data[4] != 2 or data[5] != 1:
+        return None
+    phoff, = struct.unpack_from('<Q', data, 32)
+    phentsize, phnum = struct.unpack_from('<HH', data, 54)
+    loads, dyn = [], None
+    for i in range(phnum):
+        p_type, _f, p_off, p_vaddr, _pa, p_filesz, _ms, _al = struct.unpack_from('<IIQQQQQQ', data, phoff + i * phentsize)
+        if p_type == 1:
+            loads.append((p_vaddr, p_off, p_filesz))
+        elif p_type == 2:
+            dyn = (p_off, p_filesz)
+    if not dyn:
+        return []
+    needed, strtab = [], None
+    for o in range(dyn[0], dyn[0] + dyn[1], 16):
+        tag, val = struct.unpack_from('<qQ', data, o)
+        if tag == 0:
+            break
+        if tag == 1:
+            needed.append(val)
+        elif tag == 5:
+            strtab = val
+    if strtab is None:
+        return []
+    for va, off, sz in loads:
+        if va <= strtab < va + sz:
+            base = strtab - va + off
+            break
+    else:
+        return []
+    return [data[base + n:data.index(b'\0', base + n)].decode() for n in needed]
+
+
+def is_reg(f):
+    return statmod.S_ISREG(f[1])
+
+
+def is_lnk(f):
+    return statmod.S_ISLNK(f[1])
+
+
+def provided_libs(entries):
+    return {os.path.basename(norm(n)) for n, f, d in entries
+            if (is_reg(f) or is_lnk(f)) and os.path.dirname(norm(n)) in LIB_DIRS}
+
+
+def unresolved(entries):
+    have = provided_libs(entries)
+    bad = {}
+    for n, f, d in entries:
+        if is_reg(f):
+            nd = elf_needed(d)
+            for lib in nd or ():
+                if lib not in have:
+                    bad.setdefault(lib, []).append(norm(n))
+    return bad
+
+
+def needed_by(entries):
+    users = {}
+    for n, f, d in entries:
+        if is_reg(f):
+            for lib in elf_needed(d) or ():
+                users.setdefault(lib, set()).add(norm(n))
+    return users
+
+
+def gzsize(b):
+    return len(gzip.compress(b, 6))
+
+
+def trim(entries, rules_path, log):
+    rules = []
+    for line in open(rules_path):
+        line = line.split('#', 1)[0].split()
+        if line:
+            rules.append(line)
+    keep = [r[1] for r in rules if r[0] == 'keep']
+    rm = [r[1] for r in rules if r[0] == 'rm']
+    links = [(r[1], r[2]) for r in rules if r[0] == 'link']
+    before_users = needed_by(entries)
+    before_bad = unresolved(entries)
+    out, removed, saved = [], [], 0
+    for n, f, d in entries:
+        p = norm(n)
+        if any(fnmatch.fnmatch(p, g) for g in rm) and not any(fnmatch.fnmatch(p, g) for g in keep):
+            removed.append(p); saved += gzsize(d) if is_reg(f) else 0
+            continue
+        for g, target in links:
+            if is_reg(f) and fnmatch.fnmatch(p, g) and os.path.basename(p) != os.path.basename(target):
+                saved += gzsize(d)
+                f = list(f); f[1] = statmod.S_IFLNK | 0o777
+                d = target.encode()
+                log('link  %s -> %s' % (p, target))
+                break
+        out.append((n, f, d))
+    for p in removed:
+        log('rm    %s' % p)
+    # libraries that only deleted programs used
+    while True:
+        users = needed_by(out)
+        orphans = {os.path.basename(norm(n)) for n, f, d in out
+                   if is_reg(f) and os.path.dirname(norm(n)) in ('system/lib64',)
+                   and os.path.basename(norm(n)) in before_users
+                   and not users.get(os.path.basename(norm(n)))}
+        if not orphans:
+            break
+        nxt = []
+        for n, f, d in out:
+            if os.path.dirname(norm(n)) == 'system/lib64' and os.path.basename(norm(n)) in orphans:
+                log('orphan %s (only used by removed files)' % norm(n)); saved += gzsize(d); removed.append(norm(n))
+            else:
+                nxt.append((n, f, d))
+        out = nxt
+    after_bad = unresolved(out)
+    new_bad = {k: v for k, v in after_bad.items() if k not in before_bad}
+    if new_bad:
+        raise SystemExit('trim broke library dependencies: %s' % new_bad)
+    log('trim: removed %d entries, ~%d KB gzip saved' % (len(removed), saved // 1024))
+    return out, set(removed)
+
+
+STRIP_SKIP = ('first_stage_ramdisk/*', 'vendor/*', 'odm/*', 'system/bin/init', 'system/bin/linker*',
+              'system/lib64/bootstrap/*')
+
+
+def strip_elfs(entries, objcopy, log):
+    if not objcopy:
+        log('strip: skipped (no OBJCOPY)')
+        return entries
+    out, saved = [], 0
+    with tempfile.TemporaryDirectory() as td:
+        src, dst = os.path.join(td, 'in'), os.path.join(td, 'out')
+        for n, f, d in entries:
+            p = norm(n)
+            if is_reg(f) and d[:4] == b'\x7fELF' and not any(fnmatch.fnmatch(p, g) for g in STRIP_SKIP):
+                open(src, 'wb').write(d)
+                r = subprocess.run([objcopy, '--strip-all', '--remove-section=.gnu_debugdata', src, dst],
+                                   capture_output=True)
+                if r.returncode == 0:
+                    nd = open(dst, 'rb').read()
+                    if elf_needed(nd) == elf_needed(d) and len(nd) <= len(d):
+                        saved += len(d) - len(nd)
+                        d = nd
+                else:
+                    log('strip failed for %s: %s' % (p, r.stderr.decode(errors='replace').strip()[:200]))
+            out.append((n, f, d))
+    log('strip: %d KB of symbols/debug data removed' % (saved // 1024))
+    return out
+
+
+def fix_file_lists(entries, removed):
+    """Keep OrangeFox's ramdisk-files.txt / .sha256sum consistent (it re-packs itself from them)."""
+    names = [norm(n) for n, f, d in entries]
+    present = set(names)
+    data = {norm(n): d for n, f, d in entries if is_reg(f)}
+    out = []
+    for n, f, d in entries:
+        p = norm(n)
+        if p == 'ramdisk-files.txt':
+            lines = [l for l in d.decode().splitlines() if l.strip()]
+            lines = [l for l in lines if norm(l) in present or l.strip() == '.']
+            listed = {norm(l) for l in lines}
+            lines += [x for x in names if x not in listed and x != 'ramdisk-files.txt']
+            d = ('\n'.join(lines) + '\n').encode()
+        elif p == 'ramdisk-files.sha256sum':
+            res = []
+            for l in d.decode().splitlines():
+                parts = l.split(None, 1)
+                if len(parts) == 2 and norm(parts[1].strip()) in data:
+                    q = norm(parts[1].strip())
+                    res.append('%s  ./%s' % (hashlib.sha256(data[q]).hexdigest(), q))
+            d = ('\n'.join(res) + '\n').encode()
+        out.append((n, f, d))
+    return out
+
+
+def compress(cpio):
+    it = int(os.environ.get('RD_ZOPFLI', '0'))
+    if it > 0:
+        try:
+            import zopfli.gzip
+            return zopfli.gzip.compress(cpio, numiterations=it), 'zopfli(%d)' % it
+        except ImportError:
+            pass
+    return gzip.compress(cpio, compresslevel=9, mtime=0), 'gzip -9'
+
+
 def add_stock_avb_footer(img, stock_raw):
     """Append the STOCK vbmeta blob + AVB footer (like Magisk does): the hash in it no longer
     matches, which an unlocked bootloader accepts (orange state), but the partition keeps a
@@ -191,15 +403,39 @@ def main():
     keep = [e for e in stock_entries if under(e[0], KEEP_FROM_STOCK)]
     if not keep:
         raise SystemExit('stock ramdisk has no first_stage_ramdisk?!')
-    merged = [e for e in fox_entries if not under(e[0], KEEP_FROM_STOCK)] + keep
-    names = {norm(e[0]) for e in merged}
-    for must in ('init', 'first_stage_ramdisk/fstab.mt6768', 'first_stage_ramdisk/system/bin/snapuserd'):
-        if must not in names:
-            raise SystemExit('merged ramdisk is missing %s' % must)
-
-    cpio = cpio_write(merged)
-    comp = gzip.compress(cpio, compresslevel=9, mtime=0)
-    img = stock.build(comp)
+    fox = [e for e in fox_entries if not under(e[0], KEEP_FROM_STOCK)]
+    log = lambda s: print(s, flush=True)
+    removed = set()
+    here = os.path.dirname(os.path.abspath(__file__))
+    # tier 1 is always applied; further tiers only while the image is still too big
+    tiers = os.environ.get('RD_TRIM', ':'.join(os.path.join(here, f) for f in
+                           ('ramdisk_trim.txt', 'ramdisk_trim_2.txt', 'ramdisk_trim_3.txt'))).split(':')
+    tiers = [t for t in tiers if t and os.path.exists(t)] or [None]
+    stock_raw = open(stock_path, 'rb').read()
+    for i, rules in enumerate(tiers):
+        if rules:
+            log('== applying %s' % os.path.basename(rules))
+            fox, rem = trim(fox, rules, log)
+            removed |= rem
+        if i == 0:
+            fox = strip_elfs(fox, os.environ.get('OBJCOPY'), log)
+        merged = fix_file_lists(fox + keep, removed)
+        names = {norm(e[0]) for e in merged}
+        for must in ('init', 'system/bin/recovery', 'system/bin/keystore2', 'system/bin/adbd',
+                     'system/bin/fastbootd', 'twres/fonts/Roboto-Regular.ttf', 'twres/languages/en.xml',
+                     'twres/languages/ru.xml', 'vendor/bin/teed',
+                     'first_stage_ramdisk/fstab.mt6768', 'first_stage_ramdisk/system/bin/snapuserd'):
+            if must not in names:
+                raise SystemExit('merged ramdisk is missing %s' % must)
+        cpio = cpio_write(merged)
+        comp, how = compress(cpio)
+        img = stock.build(comp)
+        fits = len(add_stock_avb_footer(img, stock_raw)) <= PART_SIZE
+        log('ramdisk after tier %d: cpio %d bytes -> %s %d bytes, image %s (over by %d bytes)'
+            % (i + 1, len(cpio), how, len(comp), 'FITS' if fits else 'too big',
+               max(0, len(img) + 8192 - PART_SIZE)))
+        if fits:
+            break
 
     # verification: re-parse, compare kernel/dtb/cmdline and stock first-stage files
     chk = Boot(img)

@@ -1,0 +1,8 @@
+# Tier 2: used only if tier 1 is not enough. Cosmetic: UI fonts fall back to Roboto
+# (everything keeps working, it just looks like stock TWRP typography).
+link twres/fonts/InterDisplay-Medium.ttf  Roboto-Medium.ttf
+link twres/fonts/InterDisplay-Regular.ttf Roboto-Regular.ttf
+link twres/fonts/GoogleSans-Medium.ttf    Roboto-Medium.ttf
+link twres/fonts/GoogleSans-Regular.ttf   Roboto-Regular.ttf
+link twres/fonts/FiraCode-Medium.ttf      FiraCode-Regular.ttf
+rm   twres/languages/uk_UA.xml

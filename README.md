@@ -41,3 +41,13 @@ fastboot flash boot stock/boot.img
 ## Расшифровка
 
 FBE v2 + метаданные (ext4, `/metadata` = `md_udc`). TEE — TrustKernel: KeyMaster 4.1 (HIDL), Gatekeeper 1.0. Блобы — `recovery/root/vendor/`, запуск — `recovery/root/init.recovery.trustkernel.rc`.
+
+## Что вырезано, чтобы влезть в 32 МБ
+
+Раздел `boot` 32 МБ, стоковое ядро занимает ~11 МБ, а полный OrangeFox — ~33 МБ (gzip). Поэтому `tools/boot_tool.py` урезает рамдиск по спискам `tools/ramdisk_trim*.txt` (второй и третий уровень применяются, только если первого не хватило):
+
+1. языки интерфейса кроме English/Русский/Українська; китайский и декоративные шрифты заменены на Roboto (выбор шрифта в настройках работает, просто выглядит как Roboto); `update_engine_sideload` (установка A/B OTA-zip — для BV7100 таких прошивок нет, GSI шьются через fastbootd, он оставлен); bash, zip, ozip, keystore_cli и неиспользуемые библиотеки; отладочные символы из бинарников OrangeFox (вендорные блобы не трогаются);
+2. шрифты интерфейса InterDisplay/GoogleSans → Roboto, украинский язык;
+3. logd/logcat (лог самого OrangeFox `/tmp/recovery.log` остаётся).
+
+Скрипт проверяет, что ни одна оставшаяся программа не потеряла нужную ей библиотеку, и исправляет `ramdisk-files.txt` (по нему OrangeFox перепаковывает сам себя).

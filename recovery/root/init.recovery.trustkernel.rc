@@ -31,12 +31,14 @@ service teed /vendor/bin/teed \
     --logpath /tmp/tkcore.log \
     --proprefix vendor.trustkernel
     user root
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64
     group root system
     disabled
     seclabel u:r:recovery:s0
 
 service keymaster-4-1-trustkernel /vendor/bin/hw/android.hardware.keymaster@4.1-service.trustkernel
     user root
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64
     group root system drmrpc
     disabled
     seclabel u:r:recovery:s0
@@ -44,6 +46,7 @@ service keymaster-4-1-trustkernel /vendor/bin/hw/android.hardware.keymaster@4.1-
 service gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
     interface android.hardware.gatekeeper@1.0::IGatekeeper default
     user root
+    setenv LD_LIBRARY_PATH /vendor/lib64:/vendor/lib64/hw:/system/lib64
     group root system
     disabled
     seclabel u:r:recovery:s0

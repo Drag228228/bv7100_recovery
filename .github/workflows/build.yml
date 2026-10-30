@@ -81,9 +81,12 @@ jobs:
           cd "$FOX"
           ( warned=0; while true; do avail=$(df --output=avail -k / | tail -1); echo "$(date +%T) $(df -h / | tail -1 | tr -s ' ') $(free -m | awk '/Mem|Swap/{printf "%s used %s/%s ", $1, $3, $2}')" >> "$GITHUB_WORKSPACE/logs/disk_watch.log"; if [ "$avail" -lt 3000000 ] && [ $warned -eq 0 ]; then echo "::warning title=LOW DISK::$(date +%T) only $((avail/1024)) MB free"; warned=1; fi; sleep 20; done ) &
           set +e
-          source build/envsetup.sh
-          export ALLOW_MISSING_DEPENDENCIES=true
+          # FOX_BUILD_DEVICE must be set BEFORE envsetup, which sources the tree's vendorsetup.sh
           export FOX_BUILD_DEVICE="$DEVICE"
+          export ALLOW_MISSING_DEPENDENCIES=true
+          source build/envsetup.sh
+          source "device/blackview/$DEVICE/vendorsetup.sh" "$DEVICE"
+          echo "::warning title=fox vars::FOX_VERSION=$FOX_VERSION FOX_REMOVE_BASH=$FOX_REMOVE_BASH FOX_VIRTUAL_AB_DEVICE=$FOX_VIRTUAL_AB_DEVICE"
           export LC_ALL=C
           lunch "${{ inputs.lunch_target }}" || lunch twrp_BV7100-eng
           mka adbd bootimage -j4 > "$GITHUB_WORKSPACE/logs/build.log" 2>&1
@@ -112,10 +115,13 @@ jobs:
           mkdir -p release debug
           NAME="OrangeFox-${{ inputs.fox_branch }}-BV7100-boot-$(date +%Y%m%d)-${{ github.run_number }}.img"
           set +e
-          python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
+          pip3 install -q zopfli || true
+          export OBJCOPY=$(ls "$FOX"/prebuilts/clang/host/linux-x86/llvm-binutils-stable/llvm-objcopy "$FOX"/prebuilts/clang/host/linux-x86/clang-r*/bin/llvm-objcopy 2>/dev/null | head -1)
+          echo "objcopy: $OBJCOPY"
+          RD_ZOPFLI=5 python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
           st=${PIPESTATUS[0]}
           set -e
-          echo "::warning title=inject::$(tail -1 logs/inject.log)"
+          echo "::warning title=inject::$(grep -E '^==|^trim:|^strip|^ramdisk after|^OK|TOO BIG|broke|missing|Error' logs/inject.log | tr '\n' ';')"
           cp "$OUT/boot.img" debug/DO_NOT_FLASH_build_boot.img || true
           [ "$st" -eq 0 ] || exit 1
           echo "== final image"; python3 tree/tools/boot_tool.py info "release/$NAME"
