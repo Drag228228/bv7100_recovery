@@ -38,7 +38,7 @@ jobs:
           sudo mkdir -p "$FOX" && sudo chown -R "$USER":"$USER" "$FOX"
           # extra swap for linking
           sudo swapoff -a || true
-          sudo fallocate -l 4G /mnt/swapfile && sudo chmod 600 /mnt/swapfile && sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
+          sudo fallocate -l 24G /mnt/swapfile && sudo chmod 600 /mnt/swapfile && sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
           free -h
           df -h / /mnt
 
@@ -79,14 +79,14 @@ jobs:
       - name: Build recovery
         run: |
           cd "$FOX"
-          ( warned=0; while true; do avail=$(df --output=avail -k / | tail -1); echo "$(date +%T) $(df -h / | tail -1 | tr -s ' ')" >> "$GITHUB_WORKSPACE/logs/disk_watch.log"; if [ "$avail" -lt 3000000 ] && [ $warned -eq 0 ]; then echo "::warning title=LOW DISK::$(date +%T) only $((avail/1024)) MB free"; warned=1; fi; sleep 20; done ) &
+          ( warned=0; while true; do avail=$(df --output=avail -k / | tail -1); echo "$(date +%T) $(df -h / | tail -1 | tr -s ' ') $(free -m | awk '/Mem|Swap/{printf "%s used %s/%s ", $1, $3, $2}')" >> "$GITHUB_WORKSPACE/logs/disk_watch.log"; if [ "$avail" -lt 3000000 ] && [ $warned -eq 0 ]; then echo "::warning title=LOW DISK::$(date +%T) only $((avail/1024)) MB free"; warned=1; fi; sleep 20; done ) &
           set +e
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           export FOX_BUILD_DEVICE="$DEVICE"
           export LC_ALL=C
           lunch "${{ inputs.lunch_target }}" || lunch twrp_BV7100-eng
-          mka adbd bootimage -j$(( $(nproc --all) )) > "$GITHUB_WORKSPACE/logs/build.log" 2>&1
+          mka adbd bootimage -j4 > "$GITHUB_WORKSPACE/logs/build.log" 2>&1
           status=$?
           ls -la "out/target/product/$DEVICE/" || true
           echo "::warning title=disk after build::$(df -h / | tail -1 | tr -s ' ')"
