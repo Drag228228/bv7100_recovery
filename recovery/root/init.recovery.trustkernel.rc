@@ -1,0 +1,49 @@
+# TrustKernel TEE + KeyMaster 4.1 + Gatekeeper for FBE decryption in OrangeFox
+on fs
+    start hwservicemanager
+    mkdir /mnt/vendor 0755 root root
+    mkdir /mnt/vendor/persist 0771 system system
+    mkdir /mnt/vendor/protect_f 0771 system system
+    mount ext4 /dev/block/by-name/persist /mnt/vendor/persist rw
+    mount ext4 /dev/block/by-name/protect1 /mnt/vendor/protect_f rw
+    mkdir /mnt/vendor/persist/t6 0770 system system
+    mkdir /mnt/vendor/protect_f/tee 0770 system system
+    mkdir /data/vendor 0771 root root
+    mkdir /data/vendor/t6 0770 system system
+    mkdir /data/vendor/t6/fs 0770 system system
+    mkdir /data/vendor/t6/app 0770 system system
+    setprop vendor.trustkernel.fs.mode 1
+    setprop vendor.trustkernel.fs.state ready
+    start teed
+
+on property:vendor.trustkernel.ready=true
+    start keymaster-4-1-trustkernel
+    start gatekeeper-1-0
+
+service teed /vendor/bin/teed \
+    --datapath /data/vendor/t6/fs \
+    --sptapath /data/vendor/t6/app \
+    --systapath /vendor/app/t6 \
+    --rpmbdev /dev/mmcblk0rpmb \
+    --rpmbdev /dev/rpmb0 \
+    --prot /mnt/vendor/persist/t6 \
+    --prot /mnt/vendor/protect_f/tee \
+    --logpath /tmp/tkcore.log \
+    --proprefix vendor.trustkernel
+    user root
+    group root system
+    disabled
+    seclabel u:r:recovery:s0
+
+service keymaster-4-1-trustkernel /vendor/bin/hw/android.hardware.keymaster@4.1-service.trustkernel
+    user root
+    group root system drmrpc
+    disabled
+    seclabel u:r:recovery:s0
+
+service gatekeeper-1-0 /vendor/bin/hw/android.hardware.gatekeeper@1.0-service
+    interface android.hardware.gatekeeper@1.0::IGatekeeper default
+    user root
+    group root system
+    disabled
+    seclabel u:r:recovery:s0

@@ -1,0 +1,157 @@
+name: Build OrangeFox (Blackview BV7100)
+
+on:
+  workflow_dispatch:
+    inputs:
+      fox_branch:
+        description: 'OrangeFox branch'
+        required: true
+        default: '14.1'
+      lunch_target:
+        description: 'lunch target'
+        required: true
+        default: 'twrp_BV7100-ap2a-eng'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    env:
+      FOX: /mnt/fox
+      DEVICE: BV7100
+    steps:
+      - name: Checkout device tree
+        uses: actions/checkout@v4
+        with:
+          path: tree
+
+      - name: Free disk space
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/logs"
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" \
+            /opt/microsoft /opt/az /opt/google /usr/lib/google-cloud-sdk /usr/local/.ghcup /usr/share/swift /usr/local/lib/node_modules \
+            /usr/local/share/powershell /usr/local/share/chromium /usr/share/miniconda /usr/lib/mono /usr/local/julia* /opt/pipx || true
+          sudo docker image prune -af || true
+          sudo mkdir -p "$FOX" && sudo chown -R "$USER":"$USER" "$FOX"
+          # extra swap for linking
+          sudo swapoff -a || true
+          sudo fallocate -l 4G /mnt/swapfile && sudo chmod 600 /mnt/swapfile && sudo mkswap /mnt/swapfile && sudo swapon /mnt/swapfile
+          free -h
+          df -h / /mnt
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y bc bison build-essential ccache curl flex g++-multilib gcc-multilib \
+            git git-lfs gnupg gperf imagemagick lib32readline-dev lib32z1-dev libelf-dev liblz4-tool lz4 \
+            libsdl1.2-dev libssl-dev libxml2 libxml2-utils lzop pngcrush rsync schedtool squashfs-tools \
+            xsltproc zip unzip zlib1g-dev python3 python-is-python3 xz-utils cpio
+          sudo curl -sSL https://storage.googleapis.com/git-repo-downloads/repo -o /usr/local/bin/repo
+          sudo chmod a+x /usr/local/bin/repo
+          git config --global user.name "OrangeFox Builder"
+          git config --global user.email "builder@users.noreply.github.com"
+          git config --global color.ui false
+
+      - name: Sync OrangeFox ${{ inputs.fox_branch }}
+        run: |
+          set -o pipefail
+          cd "$HOME"
+          git clone https://gitlab.com/OrangeFox/sync.git fox_sync
+          cd fox_sync
+          ./orangefox_sync.sh --branch "${{ inputs.fox_branch }}" --path "$FOX" 2>&1 | tee "$GITHUB_WORKSPACE/logs/sync.log"
+          df -h /mnt
+          # git metadata is not needed for building; frees a lot of space
+          du -sh "$FOX/.repo" || true
+          rm -rf "$FOX/.repo"
+          df -h /mnt
+          echo "::warning title=disk after sync::$(df -h / | tail -1 | tr -s ' ')"
+          echo "::warning title=biggest dirs::$(du -sh "$FOX"/* 2>/dev/null | sort -rh | head -12 | tr '\n' ';')"
+
+      - name: Place device tree
+        run: |
+          mkdir -p "$FOX/device/blackview"
+          rsync -a --exclude .git --exclude .github --exclude stock "$GITHUB_WORKSPACE/tree/" "$FOX/device/blackview/$DEVICE/"
+          ls -la "$FOX/device/blackview/$DEVICE"
+
+      - name: Build recovery
+        run: |
+          cd "$FOX"
+          ( warned=0; while true; do avail=$(df --output=avail -k / | tail -1); echo "$(date +%T) $(df -h / | tail -1 | tr -s ' ')" >> "$GITHUB_WORKSPACE/logs/disk_watch.log"; if [ "$avail" -lt 3000000 ] && [ $warned -eq 0 ]; then echo "::warning title=LOW DISK::$(date +%T) only $((avail/1024)) MB free"; warned=1; fi; sleep 20; done ) &
+          set +e
+          source build/envsetup.sh
+          export ALLOW_MISSING_DEPENDENCIES=true
+          export FOX_BUILD_DEVICE="$DEVICE"
+          export LC_ALL=C
+          lunch "${{ inputs.lunch_target }}" || lunch twrp_BV7100-eng
+          mka adbd bootimage -j$(( $(nproc --all) )) > "$GITHUB_WORKSPACE/logs/build.log" 2>&1
+          status=$?
+          ls -la "out/target/product/$DEVICE/" || true
+          echo "::warning title=disk after build::$(df -h / | tail -1 | tr -s ' ')"
+          if [ "$status" -ne 0 ] || [ ! -f "out/target/product/$DEVICE/boot.img" ]; then
+            msg=$( (grep -n -E "FAILED:|error:|Error |ninja: build stopped|No space|Killed" "$GITHUB_WORKSPACE/logs/build.log" | tail -n 40; echo ---; tail -n 40 "$GITHUB_WORKSPACE/logs/build.log") | sed 's/%/%25/g' | tr -d '\r' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=build failed (status $status)::$msg"
+            exit 1
+          fi
+
+      - name: Put OrangeFox ramdisk into STOCK boot
+        run: |
+          OUT="$FOX/out/target/product/$DEVICE"
+          xz -dc tree/stock/boot.img.xz > boot.img
+          sha256sum -c tree/stock/SHA256SUMS
+          mv boot.img stock_boot.img
+          echo "== built image"; python3 tree/tools/boot_tool.py info "$OUT/boot.img"
+          mkdir -p release debug
+          NAME="OrangeFox-${{ inputs.fox_branch }}-BV7100-boot-$(date +%Y%m%d)-${{ github.run_number }}.img"
+          set +e
+          python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
+          st=${PIPESTATUS[0]}
+          set -e
+          echo "::warning title=inject::$(tail -1 logs/inject.log)"
+          cp "$OUT/boot.img" debug/DO_NOT_FLASH_build_boot.img || true
+          [ "$st" -eq 0 ] || exit 1
+          echo "== final image"; python3 tree/tools/boot_tool.py info "release/$NAME"
+          (cd release && sha256sum "$NAME" > "$NAME.sha256")
+          echo "IMG_NAME=$NAME" >> "$GITHUB_ENV"
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-${{ github.run_number }}
+          path: |
+            logs/
+            debug/
+          if-no-files-found: ignore
+
+      - name: Push logs to ci-logs branch
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          L="$GITHUB_WORKSPACE/logs"; mkdir -p "$L"
+          for f in "$L"/*.log; do [ -f "$f" ] || continue; grep -n -i -E "error|failed|fatal|cannot|not found|no such|undefined|missing" "$f" | tail -n 400 > "$f.errors" || true; tail -n 3000 "$f" > "$f.tail"; rm -f "$f"; done
+          df -h / /mnt > "$L/disk.txt" 2>&1 || true
+          echo "run ${{ github.run_number }} (${{ github.run_id }}) ref ${{ github.sha }}" > "$L/RUN.txt"
+          cd "$(mktemp -d)" && git init -q && cp -r "$L"/. . && git add -A && \
+            git -c user.name=ci -c user.email=ci@users.noreply.github.com commit -qm "logs for run ${{ github.run_number }}" && \
+            git push -fq "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:refs/heads/ci-logs
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: BV7100-${{ github.run_number }}
+          name: OrangeFox ${{ inputs.fox_branch }} for Blackview BV7100 (build ${{ github.run_number }})
+          body: |
+            Flash ONLY the `*-boot-*.img` file (current slot):
+            ```
+            fastboot flash boot ${{ env.IMG_NAME }}
+            ```
+            It is the STOCK boot.img (BV7100_EEA 1742619299, patch 2025-02-05): stock kernel, dtb and
+            first_stage_ramdisk, only the recovery part replaced by OrangeFox. Android/GSI keeps booting.
+            Do NOT touch vbmeta. Magisk (if used) must be re-patched on top of this image.
+            Rollback: `xz -d stock/boot.img.xz` and `fastboot flash boot boot.img`.
+          files: |
+            release/*
