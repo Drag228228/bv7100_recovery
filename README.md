@@ -51,3 +51,11 @@ FBE v2 + метаданные (ext4, `/metadata` = `md_udc`). TEE — TrustKerne
 3. logd/logcat (лог самого OrangeFox `/tmp/recovery.log` остаётся).
 
 Скрипт проверяет, что ни одна оставшаяся программа не потеряла нужную ей библиотеку, и исправляет `ramdisk-files.txt` (по нему OrangeFox перепаковывает сам себя).
+
+## Светодиод (aw22xxx)
+
+Контроллер светодиода aw22xxx при старте грузит прошивку `aw22xxx_fw.bin` и
+конфигурации `aw22xxx_cfg_*.bin`. Без них запись в `/sys/class/leds/red/brightness`
+навсегда зависает в ядре (`rgb_set_test`), а OrangeFox гасит светодиод при старте
+(`disableled`) — отсюда «вечный логотип». Файлы лежат в `recovery/root/system/etc/firmware`
+(ueventd ищет прошивки сначала в `/etc/firmware`).

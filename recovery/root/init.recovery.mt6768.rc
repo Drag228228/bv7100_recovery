@@ -1,6 +1,9 @@
 import /init.recovery.trustkernel.rc
 
 on init
+    # battery/health HAL: OrangeFox ships it 'disabled' and nothing starts it, while the
+    # vendor manifest declares health@2.1 -> recovery's getService() waits forever
+    start health-hal-2-1
     setprop sys.usb.configfs 1
     setprop sys.usb.controller "musb-hdrc"
     setprop sys.usb.ffs.aio_compat 0
