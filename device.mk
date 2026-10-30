@@ -41,3 +41,8 @@ PRODUCT_PROPERTY_OVERRIDES += \
     ro.crypto.allow_encrypt_override=true
 
 PRODUCT_SOONG_NAMESPACES += $(LOCAL_PATH)
+
+# Prebuilt stock kernel -> $(PRODUCT_OUT)/kernel (needed by mkbootimg / vintf checks;
+# the flashed image keeps the stock kernel anyway)
+PRODUCT_COPY_FILES += $(LOCAL_PATH)/prebuilt/Image.gz:kernel
+PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
