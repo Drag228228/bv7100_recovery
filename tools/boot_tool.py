@@ -144,6 +144,28 @@ def under(name, roots):
     return any(n == r or n.startswith(r + '/') for r in roots)
 
 
+def add_stock_avb_footer(img, stock_raw):
+    """Append the STOCK vbmeta blob + AVB footer (like Magisk does): the hash in it no longer
+    matches, which an unlocked bootloader accepts (orange state), but the partition keeps a
+    valid footer layout. Returns the image padded to the full partition size."""
+    if len(stock_raw) < 64 or stock_raw[-64:-60] != b'AVBf':
+        return img
+    (_maj, _min, _orig, vb_off, vb_size) = struct.unpack('>2I3Q', stock_raw[-60:-28])
+    vbmeta = stock_raw[vb_off:vb_off + vb_size]
+    if vbmeta[:4] != b'AVB0':
+        return img
+    out = bytearray(img)
+    out += b'\0' * (align(len(out), 4096) - len(out))
+    off = len(out)
+    out += vbmeta
+    if len(out) + 64 > PART_SIZE:
+        return bytes(out)        # caller reports TOO BIG
+    out += b'\0' * (PART_SIZE - 64 - len(out))
+    footer = b'AVBf' + struct.pack('>2I3Q', 1, 0, len(img), off, len(vbmeta))
+    out += footer + b'\0' * (64 - len(footer))
+    return bytes(out)
+
+
 def main():
     if len(sys.argv) < 3:
         print(__doc__); sys.exit(1)
@@ -186,12 +208,14 @@ def main():
     for n, f, d in keep:
         assert chk_entries[norm(n)] == d, 'first-stage file changed: ' + n
 
+    payload_len = len(img)
+    img = add_stock_avb_footer(img, open(stock_path, 'rb').read())
     if len(img) > PART_SIZE:
         raise SystemExit('TOO BIG: %d bytes > boot partition %d (ramdisk gz %d bytes, need to cut %d bytes)' %
                          (len(img), PART_SIZE, len(comp), len(img) - PART_SIZE))
     open(out_path, 'wb').write(img)
-    print('OK: %s %d bytes (%d%% of boot partition); ramdisk cpio %d -> gzip %d; kept %d stock first-stage entries'
-          % (out_path, len(img), 100 * len(img) // PART_SIZE, len(cpio), len(comp), len(keep)))
+    print('OK: %s payload %d bytes (%d%% of boot partition), stock AVB footer kept; ramdisk cpio %d -> gzip %d; kept %d stock first-stage entries'
+          % (out_path, payload_len, 100 * payload_len // PART_SIZE, len(cpio), len(comp), len(keep)))
 
 
 if __name__ == '__main__':

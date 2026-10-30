@@ -103,6 +103,12 @@ jobs:
           sha256sum -c tree/stock/SHA256SUMS
           mv boot.img stock_boot.img
           echo "== built image"; python3 tree/tools/boot_tool.py info "$OUT/boot.img"
+          # size report of the recovery ramdisk (what to cut if it does not fit)
+          ( cd "$OUT/recovery/root" && du -ak . | sort -rn | head -n 300 ) > logs/ramdisk_sizes.log || true
+          ( cd "$OUT/recovery/root" && find . -type f -printf '%s %p\n' | sort -rn | head -n 300 ) > logs/ramdisk_files.log || true
+          echo "::warning title=ramdisk dirs (KB)::$(cd "$OUT/recovery/root" && du -sk * .[a-zA-Z]* 2>/dev/null | sort -rn | head -15 | tr '\n' ';')"
+          echo "::warning title=ramdisk subdirs (KB)::$(cd "$OUT/recovery/root" && du -k -d 3 . 2>/dev/null | sort -rn | sed -n '2,40p' | tr '\n' ';')"
+          echo "::warning title=biggest files::$(head -40 logs/ramdisk_files.log | tr '\n' ';')"
           mkdir -p release debug
           NAME="OrangeFox-${{ inputs.fox_branch }}-BV7100-boot-$(date +%Y%m%d)-${{ github.run_number }}.img"
           set +e

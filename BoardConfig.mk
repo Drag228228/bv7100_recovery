@@ -67,7 +67,10 @@ BOARD_RAMDISK_USE_LZ4 := false
 
 # Partitions (MT6768_Android_scatter.txt)
 BOARD_FLASH_BLOCK_SIZE := 131072
-BOARD_BOOTIMAGE_PARTITION_SIZE := 33554432
+# Real boot partition is 33554432 (32 MiB). The build-time limit is raised on purpose so the
+# build always produces the OrangeFox ramdisk; tools/boot_tool.py enforces the REAL 32 MiB
+# limit on the final image (stock kernel + OrangeFox gzip ramdisk + stock AVB footer).
+BOARD_BOOTIMAGE_PARTITION_SIZE := 67108864
 BOARD_DTBOIMG_PARTITION_SIZE := 8388608
 
 # Dynamic partitions (Virtual A/B), groups main_a/main_b in stock metadata
