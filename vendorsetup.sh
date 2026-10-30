@@ -32,7 +32,7 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
   export FOX_DELETE_AROMAFM=1
 
   # screen
-  export OF_SCREEN_H=2400
+  export OF_SCREEN_H=2408
   export OF_STATUS_H=80
   export OF_STATUS_INDENT_LEFT=48
   export OF_STATUS_INDENT_RIGHT=48
