@@ -86,6 +86,7 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           source build/envsetup.sh
           source "device/blackview/$DEVICE/vendorsetup.sh" "$DEVICE"
+          eval "$(python3 "device/blackview/$DEVICE/tools/fox_vars_fix.py" bootable/recovery/orangefox.mk)"
           echo "::warning title=fox vars::FOX_VERSION=$FOX_VERSION FOX_REMOVE_BASH=$FOX_REMOVE_BASH FOX_VIRTUAL_AB_DEVICE=$FOX_VIRTUAL_AB_DEVICE"
           export LC_ALL=C
           lunch "${{ inputs.lunch_target }}" || lunch twrp_BV7100-eng
