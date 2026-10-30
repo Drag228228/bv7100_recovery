@@ -42,7 +42,6 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
   export FOX_REMOVE_BASH=1
   export FOX_REMOVE_ZIP_BINARY=1
   export FOX_EXCLUDE_NANO_EDITOR=1
-  export OF_USE_LZ4_COMPRESSION=0
   export FOX_USE_XZ_UTILS=0
 
   # misc
@@ -51,7 +50,7 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
   export OF_USE_MAGISKBOOT=1
   export OF_USE_MAGISKBOOT_FOR_ALL_PATCHES=1
   export FOX_BUGGED_AOSP_ARB_WORKAROUND="1616300800"
-  export FOX_VERSION="R12.1_BV7100"
+  export FOX_MAINTAINER_PATCH_VERSION="1"
   export OF_MAINTAINER="Drag228228"
   echo "OrangeFox vars for $FDEVICE loaded"
 fi
