@@ -1,5 +1,15 @@
 # TrustKernel TEE + KeyMaster 4.1 + Gatekeeper for FBE decryption in OrangeFox
+on init
+    # stock vendor build.prop values; without them hw_get_module() can't find
+    # gatekeeper.trustkernel.so ("Unable to open GateKeeper HAL")
+    setprop ro.hardware.gatekeeper trustkernel
+    setprop ro.hardware.kmsetkey trustkernel
+
 on fs
+    # stock ueventd: /dev/tkcoredrv 0660 root system. Recovery's ueventd leaves it
+    # 0600 root:root and teed fails with "error opening [/dev/tkcoredrv]: Permission denied"
+    chown root system /dev/tkcoredrv
+    chmod 0660 /dev/tkcoredrv
     start hwservicemanager
     mkdir /mnt/vendor 0755 root root
     mkdir /mnt/vendor/persist 0771 system system
