@@ -27,8 +27,16 @@ on fs
     start teed
 
 on property:vendor.trustkernel.ready=true
-    start keymaster-4-1-trustkernel
-    start gatekeeper-1-0
+    # fox_sysprops copies the system's OS version / patch level, then starts
+    # keymaster-4-1-trustkernel and gatekeeper-1-0 (see the script)
+    start fox_sysprops
+
+service fox_sysprops /system/bin/sh /system/bin/fox_sysprops.sh
+    user root
+    group root
+    oneshot
+    disabled
+    seclabel u:r:recovery:s0
 
 service teed /vendor/bin/teed \
     --datapath /data/vendor/t6/fs \
