@@ -119,7 +119,7 @@ jobs:
           pip3 install -q zopfli || true
           export OBJCOPY=$(ls "$FOX"/prebuilts/clang/host/linux-x86/llvm-binutils-stable/llvm-objcopy "$FOX"/prebuilts/clang/host/linux-x86/clang-r*/bin/llvm-objcopy 2>/dev/null | head -1)
           echo "objcopy: $OBJCOPY"
-          RD_ZOPFLI=5 python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
+          RD_COMP=lzma RD_RESERVE=2097152 python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
           st=${PIPESTATUS[0]}
           set -e
           echo "::warning title=inject::$(grep -E '^==|^trim:|^strip|^ramdisk after|^OK|TOO BIG|broke|missing|Error' logs/inject.log | tr '\n' ';')"

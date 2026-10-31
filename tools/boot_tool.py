@@ -94,6 +94,9 @@ def decompress(blob):
         return bytes(out)
     if blob[:6] == b'070701':
         return blob
+    if blob[:3] == b'\x5d\x00\x00':             # legacy .lzma (lzma_alone)
+        import lzma
+        return lzma.decompress(blob, format=lzma.FORMAT_ALONE)
     raise SystemExit('unknown ramdisk compression: %s' % blob[:6].hex())
 
 
@@ -346,6 +349,12 @@ def fix_file_lists(entries, removed):
 
 
 def compress(cpio):
+    # RD_COMP=lzma: the BV7100 kernel has the lzma initramfs decompressor (no xz/lz4) and
+    # Magisk keeps the format on repack, so the image keeps room for Magisk's overlay
+    if os.environ.get('RD_COMP') == 'lzma':
+        import lzma
+        filt = [{'id': lzma.FILTER_LZMA1, 'preset': 9 | lzma.PRESET_EXTREME, 'dict_size': 16 << 20}]
+        return lzma.compress(cpio, format=lzma.FORMAT_ALONE, filters=filt), 'lzma'
     it = int(os.environ.get('RD_ZOPFLI', '0'))
     if it > 0:
         try:
@@ -430,7 +439,9 @@ def main():
         cpio = cpio_write(merged)
         comp, how = compress(cpio)
         img = stock.build(comp)
-        fits = len(add_stock_avb_footer(img, stock_raw)) <= PART_SIZE
+        # keep RD_RESERVE bytes free for Magisk (its overlay + less dense recompression)
+        reserve = int(os.environ.get('RD_RESERVE', '0'))
+        fits = len(add_stock_avb_footer(img + b'\0' * reserve, stock_raw)) <= PART_SIZE
         log('ramdisk after tier %d: cpio %d bytes -> %s %d bytes, image %s (over by %d bytes)'
             % (i + 1, len(cpio), how, len(comp), 'FITS' if fits else 'too big',
                max(0, len(img) + 8192 - PART_SIZE)))
