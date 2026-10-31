@@ -26,11 +26,8 @@ link twres/fonts/EuclidFlex-Medium.ttf  Roboto-Medium.ttf
 # through fastbootd, which stays)
 rm   system/bin/update_engine_sideload
 
-# bash/zip: OrangeFox works with the built-in sh and its own unzip (ziptool)
-rm   sbin/bash
-rm   system/bin/bash
+# zip: OrangeFox works with its own unzip (ziptool)
 rm   sbin/zip
-rm   system/etc/bash/*
 
 # debugging helpers / unused libraries (nothing links against them)
 rm   system/bin/keystore_cli_v2

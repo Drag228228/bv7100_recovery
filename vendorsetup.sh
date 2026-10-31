@@ -39,7 +39,6 @@ if [ "$1" = "$FDEVICE" -o "$FOX_BUILD_DEVICE" = "$FDEVICE" ]; then
 
   # size: the ramdisk is gzip and must fit next to the stock kernel in 32 MiB
   export FOX_REMOVE_AAPT=1
-  export FOX_REMOVE_BASH=1
   export FOX_REMOVE_ZIP_BINARY=1
   export FOX_EXCLUDE_NANO_EDITOR=1
   export FOX_USE_XZ_UTILS=0
