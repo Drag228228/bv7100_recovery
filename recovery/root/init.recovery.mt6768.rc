@@ -26,3 +26,25 @@ service boot-hal-1-2 /vendor/bin/hw/android.hardware.boot@1.2-service
     group root
     disabled
     seclabel u:r:recovery:s0
+
+# MTP over FunctionFS (configfs). OrangeFox only ships the legacy android_usb rule for
+# "mtp,adb", which does nothing on this kernel: enabling MTP unbound the gadget and the
+# phone vanished from USB (no adb, no MTP). Same functions as the stock init.mt6768.usb.rc.
+on post-fs
+    mkdir /config/usb_gadget/g1/functions/ffs.mtp
+    mkdir /dev/usb-ffs/mtp 0770 mtp mtp
+    mount functionfs mtp /dev/usb-ffs/mtp rmode=0770,fmode=0660,uid=1024,gid=1024,no_disconnect=1
+
+on property:sys.usb.config=none && property:sys.usb.configfs=1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+
+on property:sys.usb.config=mtp,adb && property:sys.usb.configfs=1 && property:sys.usb.ffs.ready=1 && property:sys.usb.ffs.mtp.ready=1
+    write /config/usb_gadget/g1/UDC "none"
+    rm /config/usb_gadget/g1/configs/b.1/f1
+    rm /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/idProduct 0x4EE2
+    write /config/usb_gadget/g1/configs/b.1/strings/0x409/configuration "mtp_adb"
+    symlink /config/usb_gadget/g1/functions/ffs.mtp /config/usb_gadget/g1/configs/b.1/f1
+    symlink /config/usb_gadget/g1/functions/ffs.adb /config/usb_gadget/g1/configs/b.1/f2
+    write /config/usb_gadget/g1/UDC ${sys.usb.controller}
+    setprop sys.usb.state ${sys.usb.config}
