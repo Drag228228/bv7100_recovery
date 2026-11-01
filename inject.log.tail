@@ -1,0 +1,80 @@
+== applying ramdisk_trim.txt
+link  twres/fonts/Chococooky.ttf -> Roboto-Regular.ttf
+link  twres/fonts/EuclidFlex-Medium.ttf -> Roboto-Medium.ttf
+link  twres/fonts/EuclidFlex-Regular.ttf -> Roboto-Regular.ttf
+link  twres/fonts/Exo2-Medium.ttf -> Roboto-Medium.ttf
+link  twres/fonts/Exo2-Regular.ttf -> Roboto-Regular.ttf
+link  twres/fonts/RobotoSlab.ttf -> Roboto-Regular.ttf
+link  twres/fonts/wqy-microhei.ttf -> Roboto-Regular.ttf
+rm    sbin/bash
+rm    system/bin/fsck.f2fs
+rm    system/bin/keystore_cli_v2
+rm    system/bin/make_f2fs
+rm    system/bin/ozip_decrypt
+rm    system/bin/sload_f2fs
+rm    system/bin/update_engine_sideload
+rm    system/etc/bash.bashrc
+rm    system/lib64/libadbd.so
+rm    system/lib64/libadbd_services.so
+rm    system/lib64/libnl.so
+rm    system/lib64/libxml2.so
+rm    twres/fonts/wqy-microhei_README.txt
+rm    twres/languages/ar_SA.xml
+rm    twres/languages/bg_BG.xml
+rm    twres/languages/bn_BD.xml
+rm    twres/languages/ca_ES.xml
+rm    twres/languages/cs_CZ.xml
+rm    twres/languages/de_DE.xml
+rm    twres/languages/el_GR.xml
+rm    twres/languages/es-ES.xml
+rm    twres/languages/fa_IR.xml
+rm    twres/languages/fr_FR.xml
+rm    twres/languages/he_IL.xml
+rm    twres/languages/hi_IN.xml
+rm    twres/languages/hu.xml
+rm    twres/languages/id_ID.xml
+rm    twres/languages/it_IT.xml
+rm    twres/languages/ja_JP.xml
+rm    twres/languages/ko_KR.xml
+rm    twres/languages/nl_NL.xml
+rm    twres/languages/no_NO.xml
+rm    twres/languages/pl_PL.xml
+rm    twres/languages/pt_BR.xml
+rm    twres/languages/pt_PT.xml
+rm    twres/languages/ro_RO.xml
+rm    twres/languages/sr_Cyrl.xml
+rm    twres/languages/th_TH.xml
+rm    twres/languages/tr_TR.xml
+rm    twres/languages/vi_VN.xml
+rm    twres/languages/zh_CN.xml
+rm    twres/languages/zh_TW.xml
+rm    vendor/app/t6/9459b61a-02d3-4d1e-b68be94397e7ca8c.ta
+orphan system/lib64/libadb_crypto.so (only used by removed files)
+orphan system/lib64/libadb_tls_connection.so (only used by removed files)
+orphan system/lib64/libadbconnection_server.so (only used by removed files)
+orphan system/lib64/libapp_processes_protos_lite.so (only used by removed files)
+orphan system/lib64/libcutils_sockets.so (only used by removed files)
+orphan system/lib64/libmdnssd.so (only used by removed files)
+orphan system/lib64/libadb_protos.so (only used by removed files)
+orphan system/lib64/libadb_sysdeps.so (only used by removed files)
+orphan system/lib64/libssl.so (only used by removed files)
+trim: removed 52 entries, ~8646 KB gzip saved
+strip: 1248 KB of symbols/debug data removed
+ramdisk after tier 1: cpio 59087360 bytes -> zopfli(15) 21778718 bytes, image too big (over by 0 bytes)
+== applying ramdisk_trim_2.txt
+link  twres/fonts/FiraCode-Medium.ttf -> FiraCode-Regular.ttf
+link  twres/fonts/GoogleSans-Medium.ttf -> Roboto-Medium.ttf
+link  twres/fonts/GoogleSans-Regular.ttf -> Roboto-Regular.ttf
+link  twres/fonts/InterDisplay-Medium.ttf -> Roboto-Medium.ttf
+link  twres/fonts/InterDisplay-Regular.ttf -> Roboto-Regular.ttf
+rm    twres/languages/uk_UA.xml
+trim: removed 1 entries, ~544 KB gzip saved
+ramdisk after tier 2: cpio 57904640 bytes -> zopfli(15) 21242262 bytes, image too big (over by 0 bytes)
+== applying ramdisk_trim_3.txt
+rm    init.recovery.logd.rc
+rm    system/bin/logcat
+rm    system/bin/logd
+orphan system/lib64/libcap.so (only used by removed files)
+trim: removed 4 entries, ~347 KB gzip saved
+ramdisk after tier 3: cpio 57021952 bytes -> zopfli(15) 20899838 bytes, image FITS (over by 0 bytes)
+OK: release/OrangeFox-14.1-BV7100-boot-20261101-15.img payload 31946752 bytes (95% of boot partition), stock AVB footer kept; ramdisk cpio 57021952 -> gzip 20899838; kept 5 stock first-stage entries

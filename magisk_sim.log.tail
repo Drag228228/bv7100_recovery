@@ -1,0 +1,66 @@
+Parsing boot image: [/home/runner/work/bv7100_orangefox/bv7100_orangefox/release/OrangeFox-14.1-BV7100-boot-20261101-15.img]
+HEADER_VER      [2]
+KERNEL_SZ       [10917516]
+RAMDISK_SZ      [20899838]
+SECOND_SZ       [0]
+RECOV_DTBO_SZ   [0]
+DTB_SZ          [126619]
+OS_VERSION      [12.0.0]
+OS_PATCH_LEVEL  [2025-02]
+PAGESIZE        [2048]
+NAME            []
+CMDLINE         [bootopt=64S3,32N2,64N2 buildvariant=user]
+CHECKSUM        [c7bf5e28dbe73ca33b31d57c2a3cb119ed4edb62000000000000000000000000]
+KERNEL_FMT      [gzip]
+RAMDISK_FMT     [gzip]
+unknown/unsupported ASN.1 DER tag: 0x00 at DER byte 1
+VBMETA
+Loading cpio: [ramdisk.cpio]
+Add file [init] (100750)
+Create directory [overlay.d] (0750)
+Create directory [overlay.d/sbin] (0750)
+Add file [overlay.d/sbin/magisk.xz] (100644)
+Add file [overlay.d/sbin/stub.xz] (100644)
+Add file [overlay.d/sbin/init-ld.xz] (100644)
+Patch with flag KEEPVERITY=[false] KEEPFORCEENCRYPT=[false]
+Loading cpio: [ramdisk.cpio.orig]
+Backup [init] -> [.backup/init]
+Record new entry: [overlay.d] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/init-ld.xz] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/magisk.xz] -> [.backup/.rmlist]
+Record new entry: [overlay.d/sbin/stub.xz] -> [.backup/.rmlist]
+Create directory [.backup] (0000)
+Add file [.backup/.magisk] (100000)
+Dumping cpio: [ramdisk.cpio]
+Parsing boot image: [/home/runner/work/bv7100_orangefox/bv7100_orangefox/release/OrangeFox-14.1-BV7100-boot-20261101-15.img]
+HEADER_VER      [2]
+KERNEL_SZ       [10917516]
+RAMDISK_SZ      [20899838]
+SECOND_SZ       [0]
+RECOV_DTBO_SZ   [0]
+DTB_SZ          [126619]
+OS_VERSION      [12.0.0]
+OS_PATCH_LEVEL  [2025-02]
+PAGESIZE        [2048]
+NAME            []
+CMDLINE         [bootopt=64S3,32N2,64N2 buildvariant=user]
+CHECKSUM        [c7bf5e28dbe73ca33b31d57c2a3cb119ed4edb62000000000000000000000000]
+KERNEL_FMT      [gzip]
+RAMDISK_FMT     [gzip]
+unknown/unsupported ASN.1 DER tag: 0x00 at DER byte 1
+VBMETA
+Repack to boot image: [new.img]
+HEADER_VER      [2]
+KERNEL_SZ       [10862936]
+RAMDISK_SZ      [21938326]
+SECOND_SZ       [0]
+RECOV_DTBO_SZ   [0]
+DTB_SZ          [126619]
+OS_VERSION      [12.0.0]
+OS_PATCH_LEVEL  [2025-02]
+PAGESIZE        [2048]
+NAME            []
+CMDLINE         [bootopt=64S3,32N2,64N2 buildvariant=user]
+CHECKSUM        [4ef1fbe9c54e257a895a5115683dbc96397796aa000000000000000000000000]
+Magisk patch OK: payload 32933888 bytes, 620544 bytes free in the 33554432 byte partition
