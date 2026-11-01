@@ -349,8 +349,8 @@ def fix_file_lists(entries, removed):
 
 
 def compress(cpio):
-    # RD_COMP=lzma: the BV7100 kernel has the lzma initramfs decompressor (no xz/lz4) and
-    # Magisk keeps the format on repack, so the image keeps room for Magisk's overlay
+    # RD_COMP=lzma only for kernels with CONFIG_RD_LZMA. The BV7100 kernel has gzip only
+    # (an lzma ramdisk hangs on the boot logo), so the CI uses zopfli-gzip
     if os.environ.get('RD_COMP') == 'lzma':
         import lzma
         filt = [{'id': lzma.FILTER_LZMA1, 'preset': 9 | lzma.PRESET_EXTREME, 'dict_size': 16 << 20}]

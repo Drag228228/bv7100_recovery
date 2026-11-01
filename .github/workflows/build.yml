@@ -119,8 +119,17 @@ jobs:
           pip3 install -q zopfli || true
           export OBJCOPY=$(ls "$FOX"/prebuilts/clang/host/linux-x86/llvm-binutils-stable/llvm-objcopy "$FOX"/prebuilts/clang/host/linux-x86/clang-r*/bin/llvm-objcopy 2>/dev/null | head -1)
           echo "objcopy: $OBJCOPY"
-          RD_COMP=lzma RD_RESERVE=2097152 python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
+          # the kernel only has the gzip initramfs decompressor (CONFIG_RD_LZMA/XZ/LZ4 are off).
+          # Magisk recompresses with plain gzip (loses the zopfli gain) and adds its overlay:
+          # ~1.1 MB on this ramdisk, so keep 1.4 MB free
+          RD_ZOPFLI=15 RD_RESERVE=1400000 python3 tree/tools/boot_tool.py inject stock_boot.img "$OUT/boot.img" "release/$NAME" 2>&1 | tee logs/inject.log
           st=${PIPESTATUS[0]}
+          # real Magisk patch with the x86_64 magiskboot from the official APK
+          if [ "$st" -eq 0 ]; then
+            bash tree/tools/magisk_sim.sh "release/$NAME" 2>&1 | tee logs/magisk_sim.log
+            st=${PIPESTATUS[0]}
+            echo "::warning title=magisk patch::$(tail -1 logs/magisk_sim.log)"
+          fi
           set -e
           echo "::warning title=inject::$(grep -E '^==|^trim:|^strip|^ramdisk after|^OK|TOO BIG|broke|missing|Error' logs/inject.log | tr '\n' ';')"
           cp "$OUT/boot.img" debug/DO_NOT_FLASH_build_boot.img || true

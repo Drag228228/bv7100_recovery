@@ -36,3 +36,15 @@ rm   system/lib64/libxml2.so
 rm   system/lib64/libadbd_services.so
 rm   system/lib64/libadbd.so
 rm   system/lib64/libnl.so
+
+# bash: 0.7 MB gzip; the OrangeFox terminal and scripts use /system/bin/sh
+rm   sbin/bash
+rm   system/etc/bash.bashrc
+
+# f2fs tools: /data and /metadata are ext4 on BV7100
+rm   system/bin/fsck.f2fs
+rm   system/bin/make_f2fs
+rm   system/bin/sload_f2fs
+
+# TrustKernel fingerprint TA (0.6 MB gzip): recovery only needs keymaster, gatekeeper and kph
+rm   vendor/app/t6/9459b61a-02d3-4d1e-b68be94397e7ca8c.ta
